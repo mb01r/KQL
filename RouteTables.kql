@@ -1,0 +1,9 @@
+resources
+| where type == "microsoft.network/routetables"
+| mvexpand Routes = properties['routes']
+| extend provisioningState = Routes.properties.provisioningState
+| extend AddressPrefix = Routes.properties.addressPrefix
+| extend NextHopIpAddress = Routes.properties.nextHopIpAddress
+| extend NextHopType = Routes.properties.nextHopType
+| extend RouteName = Routes.name
+| project subscriptionId, resourceGroup, location, name, RouteName, provisioningState, AddressPrefix, NextHopIpAddress, NextHopType
