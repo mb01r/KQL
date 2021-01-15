@@ -1,0 +1,22 @@
+Resources
+| where type =~ 'microsoft.network/networkinterfaces' 
+| where properties.ipConfigurations contains 'publicIPAddress'
+| mvexpand ipConfig = properties.ipConfigurations
+| project nicName=name, publicIpId=tostring(ipConfig.properties.publicIPAddress.id), nsgId=tostring(properties.networkSecurityGroup.id), vmId=tostring(properties.virtualMachine.id)
+| join (Resources
+	| where type =~ 'microsoft.network/publicipaddresses'
+	| project publicIpAddress=properties.ipAddress, id)
+	on $left.publicIpId == $right.id
+| join (Resources
+	| where type =~ 'microsoft.compute/virtualmachines'
+	| project vmName=name, id)
+	on $left.vmId == $right.id
+| join (Resources
+	| where type =~ 'Microsoft.Network/networkSecurityGroups'
+	| mvexpand rules=properties.securityRules
+	| where rules.properties.direction == 'Inbound' and rules.properties.access == 'Allow'
+	| where rules.properties.sourceAddressPrefix in ('*', 'Internet')
+	| where (rules.properties.destinationPortRange in ('*','3389','22')) or (rules.properties.destinationPortRanges has '22' or rules.properties.destinationPortRanges has '3389')
+	| project nsgName=name, sourceAddress=rules.properties.sourceAddressPrefix, destinationPort=rules.properties.destinationPortRange,destinationPortRanges=rules.properties.destinationPortRanges,id)
+	on $left.nsgId == $right.id
+| project vmName, nicName, publicIpAddress, nsgName, sourceAddress, destinationPort, destinationPortRanges
